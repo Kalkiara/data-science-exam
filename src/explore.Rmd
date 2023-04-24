@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts)
 ```
 
 
@@ -20,6 +20,9 @@ data_path <- "../data/top_songs_by_month.csv"
 
 df <- read_csv(data_path)
 
+
+
+df_ts <- as_tsibble(df, key = song_name, index = date)
 ```
 
 ```{r}
@@ -53,9 +56,54 @@ df_ts %>%
   geom_smooth()
 ```
 ```{r}
+df_subset <- df %>% 
+  select(danceability, date) 
 
-df_ts %>% 
-  autoplot(danceability)
+df_ts_sub <- as.ts(df_subset)
 
+autoplot(df_ts_sub)
+```
+
+```{r}
+
+data_path <- "../data/top_songs_by_year.csv"
+
+df <- read_csv(data_path)
+
+df_subset <- df %>% 
+  select(danceability, year)%>% 
+  filter(year <= 2020, year >= 2000)
+
+df_ts_subset1 <- as.ts(df_subset)
+
+autoplot(df_ts_subset1)
+```
+```{r}
+df_agg <- df %>% 
+  mutate(month = yearmonth(date)) %>% 
+  group_by(month) %>% 
+  summarize(month_mean = mean(danceability))
+
+df_agg_ts <- ts(df_agg$month_mean,  start = c(1960, 1), frequency = 12)
+
+autoplot(df_agg_ts)+
+  theme_bw()
+
+```
+
+```{r}
+df_ts_agg <- as_tsibble(df_agg)
+
+df_ts_agg %>% 
+  gg_lag(month_mean, geom = "point", lag = c(12, 24, 36, 120, 240, 360))
+
+
+```
+```{r}
+df_ts_agg %>% 
+  ACF(month_mean, lag_max = 720) %>% autoplot()
+
+df_ts_agg %>% 
+  ACF(month_mean, lag_max = 12) %>% autoplot()
 ```
 
