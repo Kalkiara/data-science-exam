@@ -1,0 +1,61 @@
+---
+title: "datasci_exam"
+output: html_document
+date: "2023-04-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+pacman::p_load(tidyverse,tsibble, ggfortify)
+```
+
+
+# loading data and cleaning
+
+```{r}
+data_path <- "../data/top_songs_by_month.csv"
+
+df <- read_csv(data_path)
+
+```
+
+```{r}
+ggplot(df, aes(date, danceability)) +
+  geom_smooth()
+
+ggplot(df, aes(date, energy)) +
+  geom_smooth()
+
+ggplot(df, aes(date, acousticness)) +
+  geom_smooth()
+
+
+ggplot(df, aes(date, instrumentalness)) +
+  geom_smooth()
+```
+```{r}
+df_ts <- df %>% 
+  mutate(month = tsibble::yearmonth(date)) %>% 
+  as_tsibble(., index = month) 
+
+
+
+df_ts <- as_tsibble(df)
+```
+
+```{r}
+
+df_ts %>% 
+  ggplot(., aes(month, instrumentalness)) +
+  geom_smooth()
+```
+```{r}
+
+df_ts %>% 
+  autoplot(danceability)
+
+```
+
