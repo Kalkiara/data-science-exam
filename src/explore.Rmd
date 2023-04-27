@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify, feasts)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2)
 ```
 
 
@@ -39,56 +39,33 @@ ggplot(df, aes(date, acousticness)) +
 ggplot(df, aes(date, instrumentalness)) +
   geom_smooth()
 ```
-```{r}
-df_ts <- df %>% 
-  mutate(month = tsibble::yearmonth(date)) %>% 
-  as_tsibble(., index = month) 
 
-
-
-df_ts <- as_tsibble(df)
-```
-
-```{r}
-
-df_ts %>% 
-  ggplot(., aes(month, instrumentalness)) +
-  geom_smooth()
-```
-```{r}
-df_subset <- df %>% 
-  select(danceability, date) 
-
-df_ts_sub <- as.ts(df_subset)
-
-autoplot(df_ts_sub)
-```
-
-```{r}
-
-data_path <- "../data/top_songs_by_year.csv"
-
-df <- read_csv(data_path)
-
-df_subset <- df %>% 
-  select(danceability, year)%>% 
-  filter(year <= 2020, year >= 2000)
-
-df_ts_subset1 <- as.ts(df_subset)
-
-autoplot(df_ts_subset1)
-```
 ```{r}
 df_agg <- df %>% 
-  mutate(month = yearmonth(date)) %>% 
-  group_by(month) %>% 
-  summarize(month_mean = mean(danceability))
+  group_by(date) %>% 
+  mutate(loud_normal = loudness / 10) %>% 
+  summarize(dance_mean = mean(danceability),
+            energy_mean = mean(energy),
+            loudness_mean = mean(loud_normal),
+            speechiness_mean = mean(speechiness),
+            acousticness_mean = mean(acousticness),
+            instrumentalness_mean = mean(instrumentalness),
+            liveness_mean = mean(liveness),
+            valence_mean = mean(liveness)) 
 
-df_agg_ts <- ts(df_agg$month_mean,  start = c(1960, 1), frequency = 12)
+df_agg_long <- df_agg %>% 
+  pivot_longer(., -c('date'))
 
-autoplot(df_agg_ts)+
-  theme_bw()
+df_agg_ts <- ts(data.matrix(df_agg),  start = c(1960, 1), frequency = 12)
 
+p1 <- autoplot(df_agg_ts, geom = "ribbon")+
+  theme_minimal()
+p1
+
+df_agg_long %>% 
+  ggplot(aes(x = date, y = value, fill = name))+
+  geom_line()+
+  facet_grid(~name)
 ```
 
 ```{r}
