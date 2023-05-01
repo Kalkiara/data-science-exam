@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra)
 ```
 
 
@@ -43,44 +43,108 @@ ggplot(df, aes(date, instrumentalness)) +
 ```{r}
 df_agg <- df %>% 
   group_by(date) %>% 
-  mutate(loud_normal = loudness / 10) %>% 
   summarize(dance_mean = mean(danceability),
             energy_mean = mean(energy),
-            loudness_mean = mean(loud_normal),
             speechiness_mean = mean(speechiness),
             acousticness_mean = mean(acousticness),
             instrumentalness_mean = mean(instrumentalness),
             liveness_mean = mean(liveness),
-            valence_mean = mean(liveness)) 
+            valence_mean = mean(valence),
+            ) 
+
+df_agg <- df_agg %>% 
+  mutate(month = yearmonth(date))
 
 df_agg_long <- df_agg %>% 
-  pivot_longer(., -c('date'))
+  pivot_longer(., -c('month', 'date'))
 
-df_agg_ts <- ts(data.matrix(df_agg),  start = c(1960, 1), frequency = 12)
+df_agg_ts <- ts(data.matrix(df_agg$dance_mean),  start = c(1960, 1), frequency = 12)
 
 p1 <- autoplot(df_agg_ts, geom = "ribbon")+
   theme_minimal()
 p1
 
+colors = c("deeppink", "red4", "gold1", "seagreen3", "royalblue3", "darkorange", "darkorchid")
+
 df_agg_long %>% 
-  ggplot(aes(x = date, y = value, fill = name))+
+  ggplot(aes(x = date, y = value, col = name))+
   geom_line()+
-  facet_grid(~name)
+  facet_grid(~name)+
+  theme_bw()+
+  theme(legend.position = "none")+
+  scale_color_manual(values = colors)
 ```
 
 ```{r}
-df_ts_agg <- as_tsibble(df_agg)
+df_ts_agg <- as_tsibble(df_agg, index = month)
 
 df_ts_agg %>% 
-  gg_lag(month_mean, geom = "point", lag = c(12, 24, 36, 120, 240, 360))
+  gg_lag(dance_mean, geom = "point", lag = c(12, 24, 36, 120, 240, 360))
 
 
 ```
+
 ```{r}
 df_ts_agg %>% 
-  ACF(month_mean, lag_max = 720) %>% autoplot()
+  ACF(dance_mean, lag_max = 720) %>% autoplot(conf.int.fill = colors[1])+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
 
 df_ts_agg %>% 
-  ACF(month_mean, lag_max = 12) %>% autoplot()
+  ACF(energy_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+df_ts_agg %>% 
+  ACF(speechiness_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+df_ts_agg %>% 
+  ACF(acousticness_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+df_ts_agg %>% 
+  ACF(instrumentalness_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+df_ts_agg %>% 
+  ACF(liveness_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+df_ts_agg %>% 
+  ACF(valence_mean, lag_max = 720) %>% autoplot()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+  scale_x_continuous(breaks = seq(0, 720, 12))
+
+```
+
+```{r}
+stl_plot <- function(variable, nplot){
+  p <- df_ts_agg %>% 
+    model(STL(variable ~ trend(window = 21) + season(window = "periodic"),
+              robust = T)) %>% 
+    components() %>% 
+    autoplot()+
+    theme_bw()
+  
+  # Modify the color of the plot
+  p_build <- ggplot_build(p)
+  p_build$data[[1]]$colour <- colors[nplot]
+  p_gtable <- ggplot_gtable(p_build)
+  grid.arrange(p_gtable)
+}
+
+stl_plot(df_ts_agg$acousticness_mean, 1)
+stl_plot(df_ts_agg$dance_mean, 2)
+stl_plot(df_ts_agg$energy_mean, 3)
+stl_plot(df_ts_agg$instrumentalness_mean, 4)
+stl_plot(df_ts_agg$liveness_mean, 5)
+stl_plot(df_ts_agg$speechiness_mean, 6)
+stl_plot(df_ts_agg$valence_mean, 7)
+
 ```
 
