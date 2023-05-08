@@ -180,12 +180,21 @@ fourier components, harmonic regression
 
 ```{r}
 fit <- df_ts_agg %>% 
-  model(f1 <- TSLM(dance_mean~trend() + fourier(K = 1)),
-        f2 <- TSLM(dance_mean~trend() + fourier(K = 2)),
-        f3 <- TSLM(dance_mean~trend() + fourier(K = 3)),
-        f4 <- TSLM(dance_mean~trend() + fourier(K = 4)),
-        f5 <- TSLM(dance_mean~trend() + fourier(K = 5)),
-        f6 <- TSLM(dance_mean~trend() + fourier(K = 6)),
+  model(f1 <- TSLM(dance_mean ~ trend() + fourier(K = 60, period = 720)))
+
+```
+
+
+```{r}
+fit <- df_ts_agg %>% 
+  model(f0 <- TSLM(dance_mean~trend() + fourier(K = 12, period = 720)), # 1 year
+        f1 <- TSLM(dance_mean~trend() + fourier(K = 60, period = 720)), # 5 years
+        f2 <- TSLM(dance_mean~trend() + fourier(K = 120, period = 720)), # 10 years
+        f3 <- TSLM(dance_mean~trend() + fourier(K = 180, period = 720)), # 15 years
+        f4 <- TSLM(dance_mean~trend() + fourier(K = 240, period = 720)), # 20 years
+        f5 <- TSLM(dance_mean~trend() + fourier(K = 300, period = 720)), # 25 years
+        f6 <- TSLM(dance_mean~trend() + fourier(K = 360, period = 720)), # 30 years
+        
         fs1 <- TSLM(dance_mean~trend() + season() + fourier(K = 1)),
         fs2 <- TSLM(dance_mean~trend() + season() + fourier(K = 2)),
         fs3 <- TSLM(dance_mean~trend() + season() + fourier(K = 3)),
@@ -198,15 +207,15 @@ glance(fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 
 ```{r}
 df_ts_agg %>% 
-  model(sf1 <- TSLM(smoothed_dance_values~trend() + fourier(K = 3))) %>% 
-  forecast(h = 60) %>% 
+  model(sf1 <- TSLM(smoothed_dance_values~trend() + fourier(K = 12, period = 720))) %>% 
+  forecast(h = 120) %>% 
   autoplot(df_ts_agg)
 ```
 
 
 ```{r}
 df_ts_agg %>% 
-  model(f1 <- TSLM(dance_mean~trend() + fourier(K = 1))) %>% 
+  model(f1 <- TSLM(dance_mean~trend() + fourier(K = 240, period = 720))) %>% 
   forecast(h = 120) %>% 
   autoplot(df_ts_agg)
 
