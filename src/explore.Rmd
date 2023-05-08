@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, patchwork, fable)
 ```
 
 
@@ -60,9 +60,9 @@ df_agg_long <- df_agg %>%
 
 df_agg_ts <- ts(data.matrix(df_agg$dance_mean),  start = c(1960, 1), frequency = 12)
 
-p1 <- autoplot(df_agg_ts, geom = "ribbon")+
-  theme_minimal()
-p1
+#p1 <- autoplot(df_agg_ts, geom = "ribbon")+
+  #theme_minimal()
+#p1
 
 colors = c("deeppink", "red4", "gold1", "seagreen3", "royalblue3", "darkorange", "darkorchid")
 
@@ -125,7 +125,7 @@ df_ts_agg %>%
 ```{r}
 stl_plot <- function(variable, nplot){
   p <- df_ts_agg %>% 
-    model(STL(variable ~ trend(window = 21) + season(window = "periodic"),
+    model(STL(variable ~ trend(window = 35) + season(window = "periodic"),
               robust = T)) %>% 
     components() %>% 
     autoplot()+
@@ -138,13 +138,92 @@ stl_plot <- function(variable, nplot){
   grid.arrange(p_gtable)
 }
 
-stl_plot(df_ts_agg$acousticness_mean, 1)
-stl_plot(df_ts_agg$dance_mean, 2)
-stl_plot(df_ts_agg$energy_mean, 3)
-stl_plot(df_ts_agg$instrumentalness_mean, 4)
-stl_plot(df_ts_agg$liveness_mean, 5)
-stl_plot(df_ts_agg$speechiness_mean, 6)
-stl_plot(df_ts_agg$valence_mean, 7)
+p1 <- stl_plot(df_ts_agg$acousticness_mean, 1)
+p2 <- stl_plot(df_ts_agg$dance_mean, 2)
+p3 <- stl_plot(df_ts_agg$energy_mean, 3)
+p4 <- stl_plot(df_ts_agg$instrumentalness_mean, 4)
+p5 <- stl_plot(df_ts_agg$liveness_mean, 5)
+p6 <- stl_plot(df_ts_agg$speechiness_mean, 6)
+p7 <- stl_plot(df_ts_agg$valence_mean, 7)
 
 ```
+
+```{r}
+# forecasting - bad example 
+
+fit_dance <- df_ts_agg %>% 
+  model(lm = TSLM(dance_mean ~ trend() + season())) 
+
+report(fit_dance)
+
+fit_dance %>% 
+  gg_tsresiduals()
+
+fit_dance %>% forecast(h = 60) %>% autoplot(df_ts_agg)
+
+# Apply Lowess smoothing
+# Convert month variable to numeric
+df_ts_agg$month_num <- as.numeric(df_ts_agg$month)
+
+# Apply Lowess smoothing
+smoothed <- loess(dance_mean ~ month_num, data = df_ts_agg, span = 0.3)
+
+# Generate smoothed values
+df_ts_agg$smoothed_dance_values <- predict(smoothed)
+
+plot(df_ts_agg$month_num, df_ts_agg$dance_mean, type = "l", col = "blue", main = "Lowess Smoothing")
+lines(df_ts_agg$month_num, df_ts_agg$smoothed_dance_values, col = "red")
+
+```
+
+fourier components, harmonic regression
+
+```{r}
+fit <- df_ts_agg %>% 
+  model(f1 <- TSLM(dance_mean~trend() + fourier(K = 1)),
+        f2 <- TSLM(dance_mean~trend() + fourier(K = 2)),
+        f3 <- TSLM(dance_mean~trend() + fourier(K = 3)),
+        f4 <- TSLM(dance_mean~trend() + fourier(K = 4)),
+        f5 <- TSLM(dance_mean~trend() + fourier(K = 5)),
+        f6 <- TSLM(dance_mean~trend() + fourier(K = 6)),
+        fs1 <- TSLM(dance_mean~trend() + season() + fourier(K = 1)),
+        fs2 <- TSLM(dance_mean~trend() + season() + fourier(K = 2)),
+        fs3 <- TSLM(dance_mean~trend() + season() + fourier(K = 3)),
+        fs4 <- TSLM(dance_mean~trend() + season() + fourier(K = 4)),
+        fs5 <- TSLM(dance_mean~trend() + season() + fourier(K = 5)),
+        fs6 <- TSLM(dance_mean~trend() + season() + fourier(K = 6)))
+
+glance(fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
+```
+
+```{r}
+df_ts_agg %>% 
+  model(sf1 <- TSLM(smoothed_dance_values~trend() + fourier(K = 3))) %>% 
+  forecast(h = 60) %>% 
+  autoplot(df_ts_agg)
+```
+
+
+```{r}
+df_ts_agg %>% 
+  model(f1 <- TSLM(dance_mean~trend() + fourier(K = 1))) %>% 
+  forecast(h = 120) %>% 
+  autoplot(df_ts_agg)
+
+
+```
+
+```{r}
+df_ts_agg %>% 
+  model(f1 <- TSLM(acousticness_mean~trend() + fourier(K = 1))) %>% 
+  forecast(h = 120) %>% 
+  autoplot(df_ts_agg)
+```
+
+```{r}
+df_ts_agg %>% 
+  model(f1 <- TSLM(instrumentalness_mean~trend() + fourier(K = 1))) %>% 
+  forecast(h = 60) %>% 
+  autoplot(df_ts_agg)
+ ```
 
