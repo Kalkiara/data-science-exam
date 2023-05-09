@@ -83,6 +83,23 @@ df_ts_agg %>%
 
 
 ```
+```{r}
+
+# try to manually add color 
+df_ts_agg %>% 
+  ACF(energy_mean, lag_max = 720) %>% 
+  autoplot() + 
+  geom_line(color = "gold1")+
+  geom_area(fill = "gold1")+
+  geom_hline(yintercept = 0, color = "black")+
+  geom_hline(yintercept = 0.071, linetype = "dashed", color = "black")+
+  geom_hline(yintercept = -0.071, linetype = "dashed", color = "black")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  scale_x_continuous(breaks = seq(0, 720, 12)) 
+
+
+```
+
 
 ```{r}
 df_ts_agg %>% 
