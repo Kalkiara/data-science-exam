@@ -13,19 +13,22 @@ pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, 
 ```
 
 
-# loading data and cleaning
+loading data and cleaning
 
 ```{r}
+# data path
 data_path <- "../data/top_songs_by_month.csv"
 
+# read to dataframe
 df <- read_csv(data_path)
 
+# df_ts <- as_tsibble(df, key = song_name, index = date) # time series tibble
 
-
-df_ts <- as_tsibble(df, key = song_name, index = date)
 ```
 
 ```{r}
+
+# aggregate by month
 df_agg <- df %>% 
   group_by(date) %>% 
   summarize(dance_mean = mean(danceability),
@@ -37,17 +40,21 @@ df_agg <- df %>%
             valence_mean = mean(valence),
             ) 
 
+# correct date formatting 
 df_agg <- df_agg %>% 
   mutate(month = yearmonth(date))
 
+# time series tibble
 df_ts_agg <- as_tsibble(df_agg, index = month)
 
-
+# define color palette
 colors = c("deeppink", "red4", "gold1", "seagreen3", "darkorange", "darkorchid")
 
+# long format
 df_agg_long <- df_agg %>% 
   pivot_longer(., -c('month', 'date'))
 
+# plot audio features
 df_agg_long %>% 
   filter(name != "liveness_mean") %>% 
   ggplot(aes(x = date, y = value, col = name))+
@@ -60,88 +67,42 @@ df_agg_long %>%
 
 
 ```{r}
-
-# try to manually add color 
-df_ts_agg %>% 
-  ACF(energy_mean, lag_max = 720) %>% 
-  autoplot() + 
-  geom_line(color = "gold1")+
-  geom_area(fill = "gold1")+
-  geom_hline(yintercept = 0, color = "black")+
-  geom_hline(yintercept = 0.071, linetype = "dashed", color = "black")+
-  geom_hline(yintercept = -0.071, linetype = "dashed", color = "black")+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-  scale_x_continuous(breaks = seq(0, 720, 12)) 
-
-
-```
-
-
-```{r}
-p1 <- df_ts_agg %>% 
-  ACF(dance_mean, lag_max = 756) %>% autoplot(conf.int.fill = colors[1])+
-    theme_bw()+
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
-  scale_x_continuous(breaks = seq(0, 756, 12))+
-  geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-  ggtitle("Danceability autocorrelation")
+# define autocorrelation plotting function
+plot_acf <- function(variable, title, color) {
   
+  df_ts_agg %>%
+    ACF(variable, lag_max = 756) %>%
+    autoplot() +
+    geom_line(color = color) +
+    geom_area(fill = color) +
+    geom_hline(yintercept = 0, color = "black") +
+    geom_hline(yintercept = 0.071, linetype = "dashed", color = "black") +
+    geom_hline(yintercept = -0.071, linetype = "dashed", color = "black") +
+    theme_bw() +
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+    scale_x_continuous(breaks = seq(0, 756, 12)) +
+    geom_vline(xintercept = 240, col = 'darkgrey', linetype = "dashed") +
+    ggtitle(title)
+}
 
+# make plot for each audio feature
+p1 <- plot_acf(df_ts_agg$dance_mean, "Danceability autocorrelation", "red4")
+p2 <- plot_acf(df_ts_agg$energy_mean, "Energy autocorrelation", "gold1")
+p3 <- plot_acf(df_ts_agg$speechiness_mean, "Speechiness autocorrelation", "darkorange")
+p4 <- plot_acf(df_ts_agg$dance_mean, "Acousticness autocorrelation", "deeppink")
+p5 <- plot_acf(df_ts_agg$energy_mean, "Instrumentalness autocorrelation", "seagreen3")
+p6 <- plot_acf(df_ts_agg$speechiness_mean, "Valence autocorrelation", "darkorchid")
 
-p2 <- df_ts_agg %>% 
-  ACF(energy_mean, lag_max = 720) %>% autoplot()+
-      theme_bw()+
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
-  scale_x_continuous(breaks = seq(0, 720, 12))+  
-  geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-    ggtitle("Energy autocorrelation")
-
-
-
-p3 <- df_ts_agg %>% 
-  ACF(speechiness_mean, lag_max = 720) %>% autoplot()+
-      theme_bw()+
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
-  scale_x_continuous(breaks = seq(0, 720, 12))+
-    geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-  ggtitle("Speechiness autocorrelation")
-
-
-p4 <- df_ts_agg %>% 
-  ACF(acousticness_mean, lag_max = 720) %>% autoplot()+
-      theme_bw()+
-theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+  scale_x_continuous(breaks = seq(0, 720, 12))+
-    geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-  ggtitle("Acousticness autocorrelation")
-
-
-p5 <- df_ts_agg %>% 
-  ACF(instrumentalness_mean, lag_max = 720) %>% autoplot()+
-      theme_bw()+
-theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+  scale_x_continuous(breaks = seq(0, 720, 12))+
-    geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-  ggtitle("Instrumentalness autocorrelation")
-
-
-
-p6 <- df_ts_agg %>% 
-  ACF(valence_mean, lag_max = 720) %>% autoplot()+
-      theme_bw()+
-theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+  scale_x_continuous(breaks = seq(0, 720, 12))+
-    geom_vline(xintercept = 240,col = 'darkgrey', linetype = "dashed")+
-  ggtitle("Valence autocorrelation")
-
-
+# combine using patchwork
 (p4+p1)/(p2+p5)/(p3+p6)
+
 ```
 
+
+
 ```{r}
+# define seasonal-trend decomposition plotting function
 stl_plot <- function(variable, nplot){
   p <- df_ts_agg %>% 
     model(STL(variable ~ trend(window = 35) + season(window = "periodic"),
@@ -157,6 +118,7 @@ stl_plot <- function(variable, nplot){
   grid.arrange(p_gtable)
 }
 
+# make stl plot for each audio feature
 stl_plot(df_ts_agg$acousticness_mean, 1)
 stl_plot(df_ts_agg$dance_mean, 2)
 stl_plot(df_ts_agg$energy_mean, 3)
@@ -170,32 +132,40 @@ stl_plot(df_ts_agg$speechiness_mean, 6)
 fourier components, harmonic regression
 ```{r}
 # Split data into training and test sets
-train <- head(df_ts_agg, -120)
+train <- head(df_ts_agg, -120) # corresponding to 10 years
 test <- tail(df_ts_agg, 120)
 
 ```
 
 
 ```{r}
+# modelling using fourier 
 model_function <- function(variable){
   fit <- train %>% 
-  model(k20_p120 <-  TSLM(variable~trend() + fourier(K = 20, period = 120)),
+    
+  model(k20_p120 <-  TSLM(variable~trend() + fourier(K = 20, period = 120)), # 10 year period
         k30_p120 <-  TSLM(variable~trend() + fourier(K = 30, period = 120)),
         k60_p120 <-  TSLM(variable~trend() + fourier(K = 60, period = 120)),
-        k30_p240 <-  TSLM(variable~trend() + fourier(K = 30, period = 240)),
+        
+        k30_p240 <-  TSLM(variable~trend() + fourier(K = 30, period = 240)), # 20 year period
         k60_p240 <-  TSLM(variable~trend() + fourier(K = 60, period = 240)),
         k120_p240 <-  TSLM(variable~trend() + fourier(K = 120, period = 240)),
-        k30_p300 <-  TSLM(variable~trend() + fourier(K = 40, period = 300)),
+        
+        k30_p300 <-  TSLM(variable~trend() + fourier(K = 40, period = 300)), # 25 year period
         k60_p300 <-  TSLM(variable~trend() + fourier(K = 80, period = 300)),
         k150_p300 <-  TSLM(variable~trend() + fourier(K = 120, period = 300)),
-
-        sk20_p120 <-  TSLM(variable~trend() + season() +fourier(K = 20, period = 120)),
+        
+        # with seasonality as predictor:
+        
+        sk20_p120 <-  TSLM(variable~trend() + season() +fourier(K = 20, period = 120)), # 10 year period
         sk30_p120 <-  TSLM(variable~trend() + season() +fourier(K = 30, period = 120)),
         sk60_p120 <-  TSLM(variable~trend() + season() +fourier(K = 60, period = 120)),
-        sk30_p240 <-  TSLM(variable~trend() + season() +fourier(K = 30, period = 240)),
+        
+        sk30_p240 <-  TSLM(variable~trend() + season() +fourier(K = 30, period = 240)), # 20 year period
         sk60_p240 <-  TSLM(variable~trend() +season() + fourier(K = 60, period = 240)),
         sk120_p240 <-  TSLM(variable~trend() + season() +fourier(K = 120, period = 240)),
-        sk30_p300 <-  TSLM(variable~trend() +season() + fourier(K = 40, period = 300)),
+        
+        sk30_p300 <-  TSLM(variable~trend() +season() + fourier(K = 40, period = 300)), # 25 year period
         sk60_p300 <-  TSLM(variable~trend() + season() +fourier(K = 80, period = 300)),
         sk150_p300 <-  TSLM(variable~trend() +season() + fourier(K = 120, period = 300)),
 
@@ -203,181 +173,179 @@ model_function <- function(variable){
   return (fit)
 }
 
-dance_fit <- model_function(train$dance_mean)
+# fit model for each of the audio features
+dance_fit <- model_function(train$dance_mean) # daceability
+energy_fit <- model_function(train$energy_mean) # energy
+speech_fit <- model_function(train$speechiness_mean) # speechiness
+acoust_fit <- model_function(train$acousticness_mean) # acousticness
+instru_fit <- model_function(train$instrumentalness_mean) # instrumentalness
+val_fit <- model_function(train$valence_mean) # valence
+
+
+# make model comparison dataframes for each audio feature
 dancedf <- glance(dance_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
-
-energy_fit <- model_function(train$energy_mean)
 energydf <- glance(energy_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
-
-speech_fit <- model_function(train$speechiness_mean)
 speechdf <- glance(speech_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
-
-acoust_fit <- model_function(train$acousticness_mean)
 acoustdf <- glance(acoust_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
-
-instru_fit <- model_function(train$instrumentalness_mean)
 intrudf <- glance(instru_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
-
-val_fit <- model_function(train$valence_mean)
 valdf <- glance(val_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 
 ```
 
+make predictions from training data
 
 ```{r}
-pred <- train %>% 
+# danceability
+pred_dance <- train %>% 
   model(fit <- TSLM(dance_mean~trend() + fourier(K = 30, period = 240))) %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
-t1 <- train %>% 
-  ggplot()+ 
-  geom_line(data = train, aes(x = month, y = dance_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
-              alpha = 0.3, fill = 'salmon3')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
-              alpha = 0.5, fill = 'salmon')+
-  geom_line(data = test, aes(x = month, y = dance_mean), alpha = 1, col = 'grey49')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'red4', size = 0.6)+
-  theme_bw()+
-  ylab("")+
-  xlab("")+
-  ggtitle("Danceability, prediction compared to test data")+
-  theme(legend.position = "none")
-t1
-```
-
-
-```{r}
-pred <- train %>% 
+# energy
+pred_energy <- train %>% 
   model(fit <- TSLM(energy_mean~trend() + fourier(K = 30, period = 240))) %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# speechiness
+pred_speech <- train %>% 
+  model(fit <- TSLM(speechiness_mean~trend() + fourier(K = 30, period = 240))) %>% 
+  forecast(h = 120) %>% 
+  hilo(level = c(80, 95)) %>% 
+  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
+
+# acousticness
+pred_acous <- train %>% 
+  model(fit <- TSLM(acousticness_mean~trend() + fourier(K = 30, period = 240))) %>% 
+  forecast(h = 120) %>% 
+  hilo(level = c(80, 95)) %>% 
+  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
+
+# instrumentalness
+pred_instru <- train %>% 
+  model(fit <- TSLM(instrumentalness_mean~trend() + fourier(K = 30, period = 240))) %>% 
+  forecast(h = 120) %>% 
+  hilo(level = c(80, 95)) %>% 
+  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
+
+# valence 
+pred_valence <- train %>% 
+  model(fit <- TSLM(valence_mean~trend() + fourier(K = 30, period = 240))) %>% 
+  forecast(h = 120) %>% 
+  hilo(level = c(80, 95)) %>% 
+  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
+
+
+```
+
+plot training predictions against real test data
+```{r}
+# plot danceability
+t1 <- train %>% 
+  ggplot()+ 
+  geom_line(data = train, aes(x = month, y = dance_mean))+
+  geom_ribbon(data = pred_dance, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+              alpha = 0.3, fill = 'salmon3')+
+  geom_ribbon(data = pred_dance, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+              alpha = 0.5, fill = 'salmon')+
+  geom_line(data = test, aes(x = month, y = dance_mean), alpha = 1, col = 'grey49')+
+  geom_line(data = pred_dance, aes(x = month, y = .mean), col = 'red4', size = 0.6)+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Danceability, prediction compared to test data")+
+  theme(legend.position = "none")
+
+
+# plot energy
 t2 <- train %>% 
   ggplot()+
   geom_line(data = train, aes(x = month, y = energy_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+  geom_ribbon(data = pred_energy, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
               alpha = 0.2, fill = 'gold1')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+  geom_ribbon(data = pred_energy, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
               alpha = 0.4, fill = 'gold')+
   geom_line(data = test, aes(x = month, y = energy_mean), alpha = .9, col = 'grey51')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'gold3', size = 0.7)+
+  geom_line(data = pred_energy, aes(x = month, y = .mean), col = 'gold3', size = 0.7)+
   theme_bw()+
     ylab("")+
   xlab("")+
   ggtitle("Energy, prediction compared to test data")+
   theme(legend.position = "none")
 
-t2
-```
 
-
-```{r}
-pred <- train %>% 
-  model(fit <- TSLM(speechiness_mean~trend() + fourier(K = 30, period = 240))) %>% 
-  forecast(h = 120) %>% 
-  hilo(level = c(80, 95)) %>% 
-  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
-
+# plot speechiness
 t3 <- train %>% 
   ggplot()+
   geom_line(data = train, aes(x = month, y = speechiness_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+  geom_ribbon(data = pred_speech, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
               alpha = 0.2, fill = 'darkorange')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+  geom_ribbon(data = pred_speech, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
               alpha = 0.4, fill = 'darkorange')+
   geom_line(data = test, aes(x = month, y = speechiness_mean), alpha = .8, col = 'grey49')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'darkorange3', size = 0.7)+
+  geom_line(data = pred_speech, aes(x = month, y = .mean), col = 'darkorange3', size = 0.7)+
   theme_bw()+
     ylab("")+
   xlab("")+
   ggtitle("Speechiness, prediction compared to test data")+
   theme(legend.position = "none")
-t3
-```
 
-
-```{r}
-pred <- train %>% 
-  model(fit <- TSLM(acousticness_mean~trend() + fourier(K = 30, period = 240))) %>% 
-  forecast(h = 120) %>% 
-  hilo(level = c(80, 95)) %>% 
-  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
-
+# plot acousticness
 t4 <- train %>% 
   ggplot()+
   geom_line(data = train, aes(x = month, y = acousticness_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+  geom_ribbon(data = pred_acous, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
               alpha = 0.2, fill = 'deeppink')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+  geom_ribbon(data = pred_acous, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
               alpha = 0.4, fill = 'deeppink')+
   geom_line(data = test, aes(x = month, y = acousticness_mean), alpha = .8, col = 'grey49')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'deeppink', size = 0.7)+
+  geom_line(data = pred_acous, aes(x = month, y = .mean), col = 'deeppink', size = 0.7)+
   theme_bw()+
     ylab("")+
   xlab("")+
   ggtitle("Acousticness, prediction compared to test data")+
   theme(legend.position = "none")
 
-t4
-```
-
-
-```{r}
-pred <- train %>% 
-  model(fit <- TSLM(instrumentalness_mean~trend() + fourier(K = 30, period = 240))) %>% 
-  forecast(h = 120) %>% 
-  hilo(level = c(80, 95)) %>% 
-  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
-
+# plot instrumentalness
 t5 <- train %>% 
  ggplot()+
   geom_line(data = train, aes(x = month, y = instrumentalness_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+  geom_ribbon(data = pred_instru, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
               alpha = 0.2, fill = 'seagreen3')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+  geom_ribbon(data = pred_instru, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
               alpha = 0.4, fill = 'seagreen3')+
   geom_line(data = test, aes(x = month, y = instrumentalness_mean), alpha = .8, col = 'grey49')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'darkgreen', size = 0.6)+
+  geom_line(data = pred_instru, aes(x = month, y = .mean), col = 'darkgreen', size = 0.6)+
   theme_bw()+
     ylab("")+
   xlab("")+
   ggtitle("Instrumentalness, prediction compared to test data")+
   theme(legend.position = "none")
 
-t5
-```
-
-
-```{r}
-pred <- train %>% 
-  model(fit <- TSLM(valence_mean~trend() + fourier(K = 30, period = 240))) %>% 
-  forecast(h = 120) %>% 
-  hilo(level = c(80, 95)) %>% 
-  unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
-
+# plot valence
 t6 <- train %>% 
  ggplot()+
   geom_line(data = train, aes(x = month, y = valence_mean))+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
+  geom_ribbon(data = pred_valence, aes(x = month, ymin = ..95._lower, ymax = ..95._upper ),
               alpha = 0.2, fill = 'darkorchid')+
-  geom_ribbon(data = pred, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
+  geom_ribbon(data = pred_valence, aes(x = month, ymin = ..80._lower, ymax = ..80._upper ),
               alpha = 0.4, fill = 'darkorchid')+
   geom_line(data = test, aes(x = month, y = valence_mean), alpha = .8, col = 'grey47')+
-  geom_line(data = pred, aes(x = month, y = .mean), col = 'darkorchid4', size = 0.6)+
+  geom_line(data = pred_valence, aes(x = month, y = .mean), col = 'darkorchid4', size = 0.6)+
   theme_bw()+
     ylab("")+
   xlab("")+
   ggtitle("Valence, prediction compared to test data")+
   theme(legend.position = "none")
 
-t6
-  
+# combine using patchwork
 (t4+t1)/(t2+t5)/(t3+t6)
+
+
 ```
+
 
 
 ```{r}
