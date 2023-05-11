@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, patchwork)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, patchwork, Metrics)
 ```
 
 
@@ -241,6 +241,7 @@ pred_valence <- train %>%
 ```
 
 plot training predictions against real test data
+
 ```{r}
 # plot danceability
 t1 <- train %>% 
@@ -346,31 +347,123 @@ t6 <- train %>%
 
 ```
 
-
+get measure for how accurate the predictions were: mae and rmse
 
 ```{r}
-f1 <- df_ts_agg %>% 
-  model(m1 <- TSLM(dance_mean~trend() + fourier(K = 30, period = 240))) %>% 
-  forecast(h = 120) %>% 
-  autoplot(df_ts_agg, color = "red4")+
-  theme_bw()+
-  theme(legend.position = "none")+
-  ggtitle("Danceability, 10 year prediction")+
-  ylab("")+
-  xlab("")
+# clean up forecast dfs to make comparable
+pred_dance_df <- as.data.frame(pred_dance) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$dance_mean) %>% 
+  rename(mean = 'test$dance_mean')
 
-f1
+pred_acous_df <- as.data.frame(pred_acous) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$acousticness_mean) %>% 
+  rename(mean = 'test$acousticness_mean')
+
+pred_energy_df <- as.data.frame(pred_acous) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$energy_mean) %>% 
+  rename(mean = 'test$energy_mean')
+
+pred_instru_df <- as.data.frame(pred_instru) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$instrumentalness_mean) %>% 
+  rename(mean = 'test$instrumentalness_mean')
+
+pred_speech_df <- as.data.frame(pred_speech) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$speechiness_mean) %>% 
+  rename(mean = 'test$speechiness_mean')
+
+pred_valence_df <- as.data.frame(pred_valence) %>% 
+  select(c('.mean', 'month')) %>% 
+  rename(pred_mean = '.mean') %>% 
+  cbind(test$valence_mean) %>% 
+  rename(mean = 'test$valence_mean')
+
+# calculate mean absolute error and root mean square error for each audio feature
+dance_mae <- mae(pred_dance_df$pred_mean, pred_dance_df$mean)
+dance_rmse <- rmse(pred_dance_df$pred_mean, pred_dance_df$mean)
+
+acous_mae <- mae(pred_acous_df$pred_mean, pred_acous_df$mean)
+acous_rmse <- rmse(pred_acous_df$pred_mean, pred_acous_df$mean)
+
+energy_mae <- mae(pred_energy_df$pred_mean, pred_energy_df$mean)
+energy_rmse <- rmse(pred_energy_df$pred_mean, pred_energy_df$mean)
+
+instru_mae <- mae(pred_instru_df$pred_mean, pred_instru_df$mean)
+instru_rmse <- rmse(pred_instru_df$pred_mean, pred_instru_df$mean)
+
+speech_mae <- mae(pred_speech_df$pred_mean, pred_speech_df$mean)
+speech_rmse <- rmse(pred_speech_df$pred_mean, pred_speech_df$mean)
+
+valence_mae <- mae(pred_valence_df$pred_mean, pred_valence_df$mean)
+valence_rmse <- rmse(pred_valence_df$pred_mean, pred_valence_df$mean)
+```
+
+overview of prediction accuracy continued
+```{r}
+# create vectors for each measure
+mae <- c(dance_mae, acous_mae, energy_mae, instru_mae, speech_mae, valence_mae)
+rmse <- c(dance_rmse, acous_rmse, energy_rmse, instru_rmse, speech_rmse, valence_rmse)
+
+# create df
+error_overview <- data.frame(feature = c("dance", "acous", "energy", "instru", "speech", "valence"),
+                 mae = mae,
+                 rmse = rmse)
+
+# make long format before plotting
+error_overview_long <- pivot_longer(
+  data = error_overview,
+  cols = c("mae", "rmse"),
+  names_to = "error_type",
+  values_to = "error_value"
+)
+
+
+# ugliest plot in the world
+ggplot(error_overview_long, aes(x = feature, y = error_value, color = error_type)) +
+  geom_point(position = "dodge", size = 2) +
+  ylab("Error") +
+  ggtitle("MAE and RMSE by audio feature") +
+  theme_bw()
+
+```
+
+
+forecast using full dataset -- what will the future look like?
+
+```{r}
+# f1 <- df_ts_agg %>% 
+#   model(m1 <- TSLM(dance_mean~trend() + fourier(K = 30, period = 240))) %>% 
+#   forecast(h = 120) %>% 
+#   autoplot(df_ts_agg, color = "red4")+
+#   theme_bw()+
+#   theme(legend.position = "none")+
+#   ggtitle("Danceability, 10 year prediction")+
+#   ylab("")+
+#   xlab("")
+# f1
 ```
 
 ```{r}
+# danceability fit
 dance_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(dance_mean~trend() + fourier(K = 30, period = 240)))
 
+# danceability forecast
 f_dance <- dance_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# danceability forecast plotted
 f1 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = dance_mean), alpha = 0.9, col = 'darkgrey')+
@@ -388,15 +481,19 @@ f1 <- df_ts_agg %>%
   
 f1
 ```
+
 ```{r}
+# acousticness fit
 acoust_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(acousticness_mean~trend() + fourier(K = 20, period = 120)))
 
+# acousticness forecast
 f_acous <- acoust_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# acousticness forecast plotted
 f2 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = acousticness_mean), alpha = 0.9, col = 'darkgrey')+
@@ -416,14 +513,17 @@ f2
 ```
 
 ```{r}
+# instrumentalness fit
 instru_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(instrumentalness_mean~trend() + fourier(K = 20, period = 120)))
 
+# instrumentalness forecast
 f_instru <- instru_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# instrumentalness forecast plotted
 f3 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = instrumentalness_mean), alpha = 0.7, col = 'darkgrey')+
@@ -444,14 +544,17 @@ f3
 
 
 ```{r}
+# energy fit
 energy_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(energy_mean~trend() + fourier(K = 30, period = 240)))
 
+# energy forecast
 f_energy <- energy_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# energy forecast plotted
 f4 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = energy_mean), alpha = 0.8, col = 'darkgrey')+
@@ -471,14 +574,17 @@ f4
 ```
 
 ```{r}
+# speechiness fit
 speech_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(speechiness_mean~trend() + fourier(K = 20, period = 120)))
 
+# speechiness forecast
 f_speech <- speech_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# speechiness forecast plotted
 f5 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = speechiness_mean), alpha = 0.7, col = 'darkgrey')+
@@ -500,14 +606,17 @@ f5
 
 
 ```{r}
+# valence fit
 val_fit <- df_ts_agg %>% 
   model(m1 <- TSLM(valence_mean~trend() + fourier(K = 20, period = 120)))
 
+# valence forecast
 f_val <- val_fit %>% 
   forecast(h = 120) %>% 
   hilo(level = c(80, 95)) %>% 
   unpack_hilo(c('80%', '95%'), names_sep = "_", names_repair = "universal")
 
+# valence forecast plotted
 f6 <- df_ts_agg %>% 
   ggplot()+
   geom_line(aes(x = month, y = valence_mean), alpha = 0.7, col = 'darkgrey')+
@@ -527,6 +636,7 @@ f6
 ```
 
 ```{r}
+# plotted together with patchwork
 (f2+f1)/(f4+f3)/(f5+f6)
 ```
 
