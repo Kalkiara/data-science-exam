@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, patchwork, Metrics)
 ```
 
-
 loading data and cleaning
 
 ```{r}
