@@ -183,7 +183,7 @@ val_fit <- model_function(train$valence_mean) # valence
 
 
 # make model comparison dataframes for each audio feature
-dancedf <- glance(dance_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
+dancedf <- glance(dance_fit) #%>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 energydf <- glance(energy_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 speechdf <- glance(speech_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 acoustdf <- glance(acoust_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
@@ -191,6 +191,56 @@ intrudf <- glance(instru_fit) %>% select(.model, r_squared, adj_r_squared, AIC, 
 valdf <- glance(val_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 
 ```
+
+residuals 
+```{r}
+dance_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
+```
+```{r}
+# modelling using fourier 
+model_function <- function(variable){
+  fit <- train %>% 
+    
+  model(k20_p120 <-  TSLM(variable~trend() + fourier(K = 20, period = 120)), # 10 year period
+        k30_p120 <-  TSLM(variable~trend() + fourier(K = 30, period = 120)),
+        k60_p120 <-  TSLM(variable~trend() + fourier(K = 60, period = 120)),
+        
+        k30_p240 <-  TSLM(variable~trend() + fourier(K = 30, period = 240)), # 20 year period
+        k60_p240 <-  TSLM(variable~trend() + fourier(K = 60, period = 240)),
+        k120_p240 <-  TSLM(variable~trend() + fourier(K = 120, period = 240)),
+        
+        k30_p300 <-  TSLM(variable~trend() + fourier(K = 40, period = 300)), # 25 year period
+        k60_p300 <-  TSLM(variable~trend() + fourier(K = 80, period = 300)),
+        k150_p300 <-  TSLM(variable~trend() + fourier(K = 120, period = 300)),
+        
+        max1 <- TSLM(variable~trend() + fourier(K = 20, period = 120) + 
+                       fourier(K = 60, period = 120)+
+                       fourier(K = 30, period = 240)+ 
+                       fourier(K = 120, period = 240)+
+                       fourier(K = 40, period = 300)+
+                       fourier(K = 120, period = 300))
+
+        )
+  return (fit)
+}
+
+# fit model for each of the audio features
+dance_fit <- model_function(train$dance_mean) # daceability
+
+dance_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
+
+dance_fit %>% select("max1 <- TSLM(variable ~ trend() + fourier(K = 20, period = 120) + \n    fourier(K = 60, period = 120) + fourier(K = 30, period = 240) + \n    fourier(K = 120, period = 240) + fourier(K = 40, period = 300) + \n    fourier(K = 120, period = 300))") %>% 
+  gg_tsresiduals()
+
+dance_fit %>% glance()
+```
+
 
 make predictions from training data
 
@@ -346,6 +396,8 @@ t6 <- train %>%
 
 
 ```
+
+
 
 get measure for how accurate the predictions were: mae and rmse
 
