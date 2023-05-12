@@ -414,7 +414,7 @@ mae <- c(dance_mae, acous_mae, energy_mae, instru_mae, speech_mae, valence_mae)
 rmse <- c(dance_rmse, acous_rmse, energy_rmse, instru_rmse, speech_rmse, valence_rmse)
 
 # create df
-error_overview <- data.frame(feature = c("dance", "acous", "energy", "instru", "speech", "valence"),
+error_overview <- data.frame(feature = c("Danceability", "Acousticness", "Energy", "Instrumentalness", "Speechiness", "Valence"),
                  mae = mae,
                  rmse = rmse)
 
@@ -427,12 +427,21 @@ error_overview_long <- pivot_longer(
 )
 
 
-# ugliest plot in the world
+# no longer the ugliest plot in the world
 ggplot(error_overview_long, aes(x = feature, y = error_value, color = error_type)) +
-  geom_point(position = "dodge", size = 2) +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0), size = 4, aes(shape = feature)) +
   ylab("Error") +
   ggtitle("MAE and RMSE by audio feature") +
-  theme_bw()
+  theme_bw()+
+  scale_shape_discrete(name  ="Error type",
+                           breaks=c("mae", "rmse"),
+                           labels=c("MAE", "RMSE"))+
+  scale_color_brewer(palette = 'Set2',
+                     name = "Error type",
+                     labels = c("MAE", "RMSE"))+
+  xlab("")+
+  scale_y_continuous(limits=c(0, 0.65))
+
 
 ```
 
