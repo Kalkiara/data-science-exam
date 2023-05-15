@@ -182,7 +182,7 @@ val_fit <- model_function(train$valence_mean) # valence
 
 
 # make model comparison dataframes for each audio feature
-dancedf <- glance(dance_fit) #%>% select(.model, r_squared, adj_r_squared, AIC, AICc)
+dancedf <- glance(dance_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 energydf <- glance(energy_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 speechdf <- glance(speech_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 acoustdf <- glance(acoust_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
@@ -198,6 +198,7 @@ dance_fit %>% residuals() %>%
   geom_point(aes(x = month, y = .resid)) +
   facet_wrap(~.model)
 ```
+
 ```{r}
 # modelling using fourier 
 model_function <- function(variable){
