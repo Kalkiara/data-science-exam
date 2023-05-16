@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, patchwork, Metrics)
+pacman::p_load(tidyverse,tsibble, ggfortify, feasts, ggplot2, gridExtra, fable, patchwork, Metrics,egg)
 ```
 
 loading data and cleaning
@@ -53,15 +53,20 @@ colors = c("deeppink", "red4", "gold1", "seagreen3", "darkorange", "darkorchid")
 df_agg_long <- df_agg %>% 
   pivot_longer(., -c('month', 'date'))
 
+# fix labels
+labels <-  c("Acousticness", "Danceability", "Energy", "Instrumentalness", "Liveness", "Speechiness", "Valence")
+names(labels) <-  sort(unique(df_agg_long$name))
+
 # plot audio features
 df_agg_long %>% 
   filter(name != "liveness_mean") %>% 
   ggplot(aes(x = date, y = value, col = name))+
   geom_line()+
-  facet_grid(~name)+
+  facet_grid(~name, labeller = labeller(name = labels))+
   theme_bw()+
   theme(legend.position = "none")+
   scale_color_manual(values = colors)
+
 ```
 
 
@@ -80,7 +85,7 @@ plot_acf <- function(variable, title, color) {
     theme_bw() +
     theme(axis.title.x = element_blank(),
           axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-    scale_x_continuous(breaks = seq(0, 756, 12)) +
+    scale_x_continuous(breaks = seq(0, 756, 36)) +
     geom_vline(xintercept = 240, col = 'darkgrey', linetype = "dashed") +
     ggtitle(title)
 }
@@ -118,12 +123,13 @@ stl_plot <- function(variable, nplot){
 }
 
 # make stl plot for each audio feature
-stl_plot(df_ts_agg$acousticness_mean, 1)
-stl_plot(df_ts_agg$dance_mean, 2)
-stl_plot(df_ts_agg$energy_mean, 3)
-stl_plot(df_ts_agg$instrumentalness_mean, 4)
-stl_plot(df_ts_agg$valence_mean, 5)
-stl_plot(df_ts_agg$speechiness_mean, 6)
+stl1 <- stl_plot(df_ts_agg$acousticness_mean, 1)
+stl2 <- stl_plot(df_ts_agg$dance_mean, 2)
+stl3 <- stl_plot(df_ts_agg$energy_mean, 3)
+stl4 <- stl_plot(df_ts_agg$instrumentalness_mean, 4)
+stl5 <- stl_plot(df_ts_agg$valence_mean, 5)
+stl6 <- stl_plot(df_ts_agg$speechiness_mean, 6)
+
 
 ```
 
@@ -131,8 +137,8 @@ stl_plot(df_ts_agg$speechiness_mean, 6)
 fourier components, harmonic regression
 ```{r}
 # Split data into training and test sets
-train <- head(df_ts_agg, -120) # corresponding to 10 years
-test <- tail(df_ts_agg, 120)
+train <- head(df_ts_agg, -120) 
+test <- tail(df_ts_agg, 120) # corresponding to 10 years
 
 ```
 
@@ -197,50 +203,32 @@ dance_fit %>% residuals() %>%
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
   facet_wrap(~.model)
-```
 
-```{r}
-# modelling using fourier 
-model_function <- function(variable){
-  fit <- train %>% 
-    
-  model(k20_p120 <-  TSLM(variable~trend() + fourier(K = 20, period = 120)), # 10 year period
-        k30_p120 <-  TSLM(variable~trend() + fourier(K = 30, period = 120)),
-        k60_p120 <-  TSLM(variable~trend() + fourier(K = 60, period = 120)),
-        
-        k30_p240 <-  TSLM(variable~trend() + fourier(K = 30, period = 240)), # 20 year period
-        k60_p240 <-  TSLM(variable~trend() + fourier(K = 60, period = 240)),
-        k120_p240 <-  TSLM(variable~trend() + fourier(K = 120, period = 240)),
-        
-        k30_p300 <-  TSLM(variable~trend() + fourier(K = 40, period = 300)), # 25 year period
-        k60_p300 <-  TSLM(variable~trend() + fourier(K = 80, period = 300)),
-        k150_p300 <-  TSLM(variable~trend() + fourier(K = 120, period = 300)),
-        
-        max1 <- TSLM(variable~trend() + fourier(K = 20, period = 120) + 
-                       fourier(K = 60, period = 120)+
-                       fourier(K = 30, period = 240)+ 
-                       fourier(K = 120, period = 240)+
-                       fourier(K = 40, period = 300)+
-                       fourier(K = 120, period = 300))
-
-        )
-  return (fit)
-}
-
-# fit model for each of the audio features
-dance_fit <- model_function(train$dance_mean) # daceability
-
-dance_fit %>% residuals() %>% 
+energy_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
   facet_wrap(~.model)
 
-dance_fit %>% select("max1 <- TSLM(variable ~ trend() + fourier(K = 20, period = 120) + \n    fourier(K = 60, period = 120) + fourier(K = 30, period = 240) + \n    fourier(K = 120, period = 240) + fourier(K = 40, period = 300) + \n    fourier(K = 120, period = 300))") %>% 
-  gg_tsresiduals()
+speech_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
 
-dance_fit %>% glance()
+acoust_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
+
+instru_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
+
+val_fit %>% residuals() %>% 
+  ggplot() + 
+  geom_point(aes(x = month, y = .resid)) +
+  facet_wrap(~.model)
 ```
-
 
 make predictions from training data
 
