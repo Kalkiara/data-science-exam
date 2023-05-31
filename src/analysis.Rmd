@@ -199,35 +199,44 @@ valdf <- glance(val_fit) %>% select(.model, r_squared, adj_r_squared, AIC, AICc)
 
 residuals 
 ```{r}
-dance_fit %>% residuals() %>% 
+r1 <- dance_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("danceability, residuals")
 
-energy_fit %>% residuals() %>% 
+r2 <- energy_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("energy, residuals")
 
-speech_fit %>% residuals() %>% 
+r3 <- speech_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("speechiness, residuals")
 
-acoust_fit %>% residuals() %>% 
+r4 <- acoust_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("acousticness, residuals")
 
-instru_fit %>% residuals() %>% 
+r5 <- instru_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("instrumentalness, residuals")
 
-val_fit %>% residuals() %>% 
+r6 <- val_fit %>% residuals() %>% 
   ggplot() + 
   geom_point(aes(x = month, y = .resid)) +
-  facet_wrap(~.model)
+  facet_wrap(~.model)+
+  ggtitle("valence, residuals")
+
+(r1+r2+r3) / (r4+r5+r6)
+
 ```
 
 make predictions from training data
